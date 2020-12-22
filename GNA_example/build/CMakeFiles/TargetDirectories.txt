@@ -1,0 +1,4 @@
+/home/hoqe4365/Documents/repos/optimisation/GNA_example/build/CMakeFiles/edit_cache.dir
+/home/hoqe4365/Documents/repos/optimisation/GNA_example/build/CMakeFiles/rebuild_cache.dir
+/home/hoqe4365/Documents/repos/optimisation/GNA_example/build/CMakeFiles/basic_gna.dir
+/home/hoqe4365/Documents/repos/optimisation/GNA_example/build/CMakeFiles/lma.dir
