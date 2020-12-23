@@ -46,14 +46,24 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
 	    // store in fvec
 
 	    // function is ax^2 + bx + c
-
+        float a = x[0];
+        float b = x[1];
+        float c = x[2];
+        float d = x[3];
 	    for (int m_i = 0; m_i < this->values(); ++m_i) {
 
-	        float a = x[0];
-	        float b = x[1];
-	        float c = x[2];
+
 	        float x_val = x_data[m_i];
-	        fvec[m_i] = y_data[m_i] - exp(a*x_val*x_val+b*x_val+c);
+	        float y_val = y_data[m_i];
+	        
+	        if (m_i < 50){
+
+	        	fvec[m_i] = y_val - exp(a*x_val*x_val+b*x_val);
+
+	        } else {
+	        	fvec[m_i] = y_val - exp(c*x_val*x_val+d*x_val);
+	        }
+
 
 	    }
 
@@ -67,18 +77,28 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
 	int df(const InputType &x, JacobianType& fjac)
     {
         // find partial derivatives of each term / data point WRT each parameter in x
+        float a = x[0];
+        float b = x[1];
+        float c = x[2];
+        float d = x[3];
+
         for (int m_i = 0; m_i < this->values(); ++m_i)
         {
-
-            float a = x[0];
-            float b = x[1];
-            float c = x[2];
             float x_val = x_data[m_i];
+	        float y_val = y_data[m_i];
 
-            // analytical version
-            fjac.coeffRef(m_i, 0) = -x_val*x_val*exp(a*x_val*x_val+b*x_val+c);
-            fjac.coeffRef(m_i, 1) = -x_val*exp(a*x_val*x_val+b*x_val+c);
-            fjac.coeffRef(m_i, 2) = -exp(a*x_val*x_val+b*x_val+c);
+	        if (m_i < 50) {
+	            // analytical version
+	            fjac.coeffRef(m_i, 0) = -x_val*x_val*exp(a*x_val*x_val+b*x_val);
+	            fjac.coeffRef(m_i, 1) = -x_val*exp(a*x_val*x_val+b*x_val);
+	            // fjac.coeffRef(m_i, 2) = -exp(a*x_val*x_val+b*x_val+c);
+	        } else {
+
+	            fjac.coeffRef(m_i, 2) = -x_val*x_val*exp(c*x_val*x_val+d*x_val);
+	            fjac.coeffRef(m_i, 3) = -x_val*exp(c*x_val*x_val+d*x_val);
+	        }
+
+
 
         }
     	fjac.makeCompressed();
@@ -95,30 +115,34 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
 
 
 int main(int argc, char **argv) {
-    double ar = 1.0, br = 2.0, cr = 1.0;         // real parameter value
-    double ae = 2.0, be = -1.0, ce = 5.0;        // Estimated parameter value
+    double ar = 1.0, br = 2.0, cr = 1.0, dr = 3.0;         // real parameter value
+    double ae = 2.0, be = -1.0, ce = 5.0, de = 2.0;        // Estimated parameter value
     int N = 100;                                 // data point
     double w_sigma = 1.0;                        // Noise Sigma value
     cv::RNG rng;                                 // OpenCV random number generator
 
 
     // for LMA
-    int n = 3;//num parameters
+    int n = 4;//num parameters
     int m = N;//num constraints (terms)
-    Eigen::VectorXf x (3); // parameter values (initial)    
+    Eigen::VectorXf x (4); // parameter values (initial)    
+
     x(0) = ae;
     x(1) = be;
-    x(2) = ce; // parameter values (initial)    
-
+    x(2) = ce;
+    x(3) = de;
 
     vector<double> x_data, y_data;      // data
     for (int i = 0; i < N; i++) {
         double x = i / 100.0;
         x_data.push_back(x);
-        y_data.push_back(exp(ar * x * x + br * x + cr) + rng.gaussian(w_sigma));
+
+        if (i < 50){
+        	y_data.push_back(exp(ar * x * x + br * x) + rng.gaussian(w_sigma));
+        } else {
+        	y_data.push_back(exp(cr * x * x + dr * x) + rng.gaussian(w_sigma));
+        }
     }
-
-
 
     CustomSparseFunctor<float, int> lmfunctor (n, m);
     lmfunctor.x_data = x_data;
@@ -129,7 +153,7 @@ int main(int argc, char **argv) {
     lm.minimize(x);
 
 
-    cout << "estimated abc = " << x << endl;
+    cout << "estimated abcd = " << x << endl;
 
 
     return 0;
