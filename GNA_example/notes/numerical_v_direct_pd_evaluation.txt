@@ -69,14 +69,40 @@ robustness, no outlier, direct
 
 
 ---------------------------------------------
-HUBER LOSS FUNCTION
+HUBER LOSS FUNCTION (corrected, committed 463f614)
+
+
+no robustness, no outlier, numerical
+
+1.49915
+2.00044
+1.59814
+2.10099
+
+no robustness, outlier, numerical
+(this is now better than above, after choosing x values randomly)
+
+1.41127
+2.04831
+1.59814
+2.10099
+
+
+
+robustness, outlier, numerical
+
+1.4706
+2.01598
+1.59814
+2.10099
 
 
 robustness, no outlier, numerical
 
-estimated abcd = 1.50791
- 1.9984
-1.60048
-    2.1
+1.49915
+2.00044
+1.59814
+2.10099
+
 
 

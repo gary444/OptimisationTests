@@ -12,7 +12,7 @@
 using namespace std;
 using namespace Eigen;
 
-#define ADD_OUTLIER 1 
+#define ADD_OUTLIER 1
 #define ROBUSTIFY   1
 
 #define NUMERICAL_GRADIENT_CALCULATION 1
@@ -367,7 +367,7 @@ int main(int argc, char **argv) {
     double ar = 1.5, br = 2.0, cr = 1.6, dr = 2.1;         // real parameter value
     double ae = 1.5, be = 2.0, ce = 1.5, de = 2.0;        // Estimated parameter value
     int N = 100;                                 // data point
-    double w_sigma = 0.001;                        // Noise Sigma value
+    double w_sigma = 0.2;                        // Noise Sigma value
     cv::RNG rng;                                 // OpenCV random number generator
 
 
@@ -405,10 +405,9 @@ int main(int argc, char **argv) {
     }
     if (ADD_OUTLIER){
         double x = x_data[10];
-        y_data[10] = 3.0;
+        y_data[10] *= 3.0;
     }
     
-    for (auto y : y_data) std::cout << y << std::endl;
 
     // for (int i = 0; i < x_data.size(); ++i)
     // {
@@ -426,7 +425,17 @@ int main(int argc, char **argv) {
     lm.minimize(x_vec);
 
 
+
+
     cout << "estimated abcd = " << x_vec << endl;
+
+
+    // std::cout << "X:" << std::endl;
+    // for (auto x : x_data) std::cout << x << std::endl;
+
+    // std::cout << "Y:" << std::endl;
+    // for (auto y : y_data) std::cout << y << std::endl;
+
 
 
     return 0;
