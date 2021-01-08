@@ -1,4 +1,4 @@
-
+Results from commit 865a388
 
 
 estimated abcd = 1.19495
@@ -66,4 +66,17 @@ robustness, no outlier, direct
  1.9984
 1.60048
     2.1
+
+
+---------------------------------------------
+HUBER LOSS FUNCTION
+
+
+robustness, no outlier, numerical
+
+estimated abcd = 1.50791
+ 1.9984
+1.60048
+    2.1
+
 

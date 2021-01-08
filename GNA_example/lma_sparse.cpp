@@ -12,10 +12,12 @@
 using namespace std;
 using namespace Eigen;
 
-#define ADD_OUTLIER 0 
+#define ADD_OUTLIER 1 
 #define ROBUSTIFY   1
 
-#define NUMERICAL_GRADIENT_CALCULATION 0
+#define NUMERICAL_GRADIENT_CALCULATION 1
+
+#define HUBER_LOSS 1
 
 // from SSBA repo=====================================================
 double sqr(double const x) { return x*x; }
@@ -40,9 +42,30 @@ double psi_weight(double const tau2, double const r2)
 //   return sqr(std::max(0.0, 1.0 - r2/tau2));
 // }
 // =====================================================
+    
+double const huber_delta = 0.1;
+
+double huber_loss(double const c, double const r, bool& outlier){ // robustness constant, residual
+    if (abs(r) < c){ //inlier
+        outlier = false;
+        return 0.5 * r * r;
+    } else { //outlier
+        outlier = true;
+        return c*abs(r) - 0.5*c*c;
+    }
+}
+
+// derivative from sepwww.stanford.edu/public/docs/sep92/jon2/paper_html/node2.html
+double huber_first_derivative(double const c, double const r){ // robustness constant, residual
+    if (abs(r) < c){ //inlier
+        return r;
+    } else { //outlier
+        return r > 0 ? c : (r < 0 ? -c : 0); // c*sgn(r). sgn() is the sign function
+    }
+}
 
 
-
+// =====================================================
 
 
 template <typename _Scalar, typename _Index>
@@ -82,6 +105,8 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
         double b = x[1];
         double c = x[2];
         double d = x[3];
+
+        uint32_t outliers = 0;
 
         for (Index i = 0; i < 100; ++i)
         {
@@ -129,7 +154,13 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
 
                 // residuals are 1 dimensional in this case
                 double res = fvec[m_i];
+#if HUBER_LOSS
+                bool is_outlier;
+                double const sqrt_psi = sqrt(huber_loss(huber_delta, res, is_outlier ));
+                if (is_outlier) ++outliers;
+#else
                 double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, res*res ));
+#endif           
                 double const rnorm_r  = 1.0 / std::max(eps_psi_residual, abs(res) ) ;
 
 
@@ -148,11 +179,13 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
 
 	    }
 
-
-
-
-
         std::cout << "Fvec\n" << fvec << std::endl;
+
+#if HUBER_LOSS
+        std::cout << "Outliers (huber) : " << outliers << std::endl;
+#endif
+
+
 
 	    return 0;
 
@@ -220,20 +253,39 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
                     // copyMatrix(Jdst, J);
                     // multiply_A_B(outer_deriv, J, Jdst);
 
+                    // first attempt
+                    // double const r2 = sqr(r);
+                    // double const W = psi_weight(m_sqrInlierThreshold, r2);
+                    // double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, r2));
+                    // double const rsqrt_psi = 1.0 / std::max(eps_psi_residual, sqrt_psi);
+                    // double const rcp_r2 = 1.0 / std::max(eps_psi_residual, r2);
+                    // double const rnorm_r = 1.0 / std::max(eps_psi_residual, double(r));
+                    // double const r_rt = r2;
+                    // double const rI = r;
+                    // double const deriv = W/2.0*rsqrt_psi * r_rt + sqrt_psi * rcp_r2 * (rI - r_rt);
 
+                    double const r_abs = abs(r);
+                    double const rcp_r_abs = 1.0 / std::max(eps_psi_residual, r_abs);
                     double const r2 = sqr(r);
-                    double const W = psi_weight(m_sqrInlierThreshold, r2);
-                    double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, r2));
+                    double const r3 = r_abs*r_abs*r_abs;
+                    double const rcp_r3 = 1.0 / std::max(eps_psi_residual, r3);
+#if HUBER_LOSS
+                    double const W = huber_first_derivative(huber_delta, r);
+                    bool is_outlier_dummy;
+                    double const sqrt_psi = sqrt(huber_loss(huber_delta, r, is_outlier_dummy));
+#else
+                    double const W = psi_weight(m_sqrInlierThreshold, r);
+                    double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, r));
+#endif            
                     double const rsqrt_psi = 1.0 / std::max(eps_psi_residual, sqrt_psi);
-
-                    // Matrix2x2d outer_deriv, r_rt, rI;
                     double const rcp_r2 = 1.0 / std::max(eps_psi_residual, r2);
                     double const rnorm_r = 1.0 / std::max(eps_psi_residual, double(r));
-                    // makeOuterProductMatrix(r, r_rt); scaleMatrixIP(rnorm_r, r_rt);
                     double const r_rt = r2;
                     double const rI = r;
-                    // makeIdentityMatrix(rI); scaleMatrixIP(sqrt(r2), rI);
-                    double const deriv = W/2.0*rsqrt_psi * r_rt + sqrt_psi * rcp_r2 * (rI - r_rt);
+
+                    // 2nd term seems to cancel out if there is only one component of the residual
+                    // double const deriv = 0.5*rcp_r_abs*rsqrt_psi * r * W + sqrt_psi * rcp_r3 * (r2 - r_rt);
+                    double const deriv = 0.5 * rcp_r_abs * rsqrt_psi * r * W;
 
                     pds[0] *= deriv;
                     pds[1] *= deriv;
@@ -337,7 +389,10 @@ int main(int argc, char **argv) {
 
     vector<double> x_data, y_data;      // data
     for (int i = 0; i < N; i++) {
-        double x = i / double(N) * 0.5;
+        // double x = i / double(N) * 0.5;
+
+        double x = rng.uniform((double)0, (double)0.5);
+
         // double x = i / double(N);
         x_data.push_back(x);
 
