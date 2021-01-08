@@ -1,0 +1,69 @@
+
+
+
+estimated abcd = 1.19495
+2.00164
+1.62274
+2.09992
+
+
+no robustness, no outlier, numerical
+
+estimated abcd = 1.50791
+ 1.9984
+1.60048
+    2.1
+
+no robustness, outlier, numerical
+
+-1.87676
+ 2.70147
+ 1.60048
+     2.1
+
+robustness, outlier, numerical
+
+1.73873
+1.95264
+1.63615
+2.09106
+
+
+robustness, no outlier, numerical
+
+1.45216
+2.01244
+1.63615
+2.09106
+
+---------------------------------------------
+
+no robustness, no outlier, direct
+ 1.50791
+ 1.9984
+1.60048
+    2.1
+
+no robustness, outlier, direct
+
+-1.87676
+ 2.70147
+ 1.60048
+     2.1
+
+
+robustness, outlier, direct
+
+1.50944
+1.99808
+1.60048
+    2.1
+
+
+robustness, no outlier, direct
+
+1.50791
+ 1.9984
+1.60048
+    2.1
+
