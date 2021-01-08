@@ -12,7 +12,7 @@
 using namespace std;
 using namespace Eigen;
 
-#define ADD_OUTLIER 1
+#define ADD_OUTLIER 0
 #define ROBUSTIFY   1
 
 #define NUMERICAL_GRADIENT_CALCULATION 1
