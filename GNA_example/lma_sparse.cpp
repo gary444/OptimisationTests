@@ -13,7 +13,9 @@ using namespace std;
 using namespace Eigen;
 
 #define ADD_OUTLIER 0 
-#define ROBUSTIFY 0
+#define ROBUSTIFY   1
+
+#define NUMERICAL_GRADIENT_CALCULATION 0
 
 // from SSBA repo=====================================================
 double sqr(double const x) { return x*x; }
@@ -68,7 +70,7 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
 	// to be defined in the functor
 
 	   // Compute 'm' errors, one for each data point, for the given parameter values in 'x'
-	// int operator()(const Eigen::VectorXf &x, Eigen::VectorXf &fvec) const
+	// int operator()(const Eigen::VectorXd &x, Eigen::VectorXd &fvec) const
 	int operator()(const InputType &x, ValueType& fvec)
 	{
 	    // find the residuals / evaluate each term / calculate squared difference at each data point
@@ -158,7 +160,7 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
 
 
     // Compute the jacobian of the errors
-    // int df(const Eigen::VectorXf &x, Eigen::MatrixXf &fjac) const
+    // int df(const Eigen::VectorXd &x, Eigen::MatrixXf &fjac) const
 	int df(const InputType &x, JacobianType& fjac)
     {
         // find partial derivatives of each term / data point WRT each parameter in x
@@ -167,92 +169,126 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
         double c = x[2];
         double d = x[3];
 
-        for (Index m_i = 0; m_i < Index(this->values()); ++m_i)
-        {
-            double x_val = x_data[m_i];
-	        double y_val = y_data[m_i];
 
-            double pds[2];
-            double r;
+        const float epsilon = 1e-5f;
 
-	        if (m_i < 50) {
-	            // analytical version
-	            pds[0] = -x_val*x_val*exp(a*x_val*x_val+b*x_val);
-	            pds[1] = -x_val*exp(a*x_val*x_val+b*x_val);
 
-	            // fjac.coeffRef(m_i, 2) = -exp(a*x_val*x_val+b*x_val+c);
-	        
-                r = y_val - exp(a*x_val*x_val+b*x_val);
-
-            } else {
-
-	            pds[0] = -x_val*x_val*exp(c*x_val*x_val+d*x_val);
-	            pds[1] = -x_val*exp(c*x_val*x_val+d*x_val);
-
-                // fjac.coeffRef(m_i, 2) = -x_val*x_val*exp(c*x_val*x_val+d*x_val);
-                // fjac.coeffRef(m_i, 3) = -x_val*exp(c*x_val*x_val+d*x_val);
+        if (NUMERICAL_GRADIENT_CALCULATION){
 
 
 
-                r = y_val - exp(c*x_val*x_val+d*x_val);
-	        }
+            for (Index m_i = 0; m_i < Index(this->values()); ++m_i)
+            {
+                double x_val = x_data[m_i];
+    	        double y_val = y_data[m_i];
 
-            if (ROBUSTIFY){
+                double pds[2];
+                double r;
+    	       
+                if (m_i < 50) {
+    	            pds[0] = -x_val*x_val*exp(a*x_val*x_val+b*x_val);
+    	            pds[1] = -x_val*exp(a*x_val*x_val+b*x_val);
 
-                // Vector2d const q = this->projectPoint(_Xs[point], view);
-                // Vector2d const r = q - _measurements[k];
+                    r = y_val - exp(a*x_val*x_val+b*x_val);
 
-                // double const r2 = sqrNorm_L2(r);
-                // double const W = psi_weight(m_sqrInlierThreshold, r2);
-                // double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, r2));
-                // double const rsqrt_psi = 1.0 / std::max(eps_psi_residual, sqrt_psi);
+                } else {
 
-                // Matrix2x2d outer_deriv, r_rt, rI;
-                // double const rcp_r2 = 1.0 / std::max(eps_psi_residual, r2);
-                // double const rnorm_r = 1.0 / std::max(eps_psi_residual, sqrt(r2));
-                // makeOuterProductMatrix(r, r_rt); scaleMatrixIP(rnorm_r, r_rt);
-                // makeIdentityMatrix(rI); scaleMatrixIP(sqrt(r2), rI);
-                // outer_deriv = W/2.0*rsqrt_psi * r_rt + sqrt_psi * rcp_r2 * (rI - r_rt);
+    	            pds[0] = -x_val*x_val*exp(c*x_val*x_val+d*x_val);
+    	            pds[1] = -x_val*exp(c*x_val*x_val+d*x_val);
 
-                // Matrix<double> J(Jdst.num_rows(), Jdst.num_cols());
-                // copyMatrix(Jdst, J);
-                // multiply_A_B(outer_deriv, J, Jdst);
+                    r = y_val - exp(c*x_val*x_val+d*x_val);
+    	        }
+
+                if (ROBUSTIFY){
+
+                    // Vector2d const q = this->projectPoint(_Xs[point], view);
+                    // Vector2d const r = q - _measurements[k];
+
+                    // double const r2 = sqrNorm_L2(r);
+                    // double const W = psi_weight(m_sqrInlierThreshold, r2);
+                    // double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, r2));
+                    // double const rsqrt_psi = 1.0 / std::max(eps_psi_residual, sqrt_psi);
+
+                    // Matrix2x2d outer_deriv, r_rt, rI;
+                    // double const rcp_r2 = 1.0 / std::max(eps_psi_residual, r2);
+                    // double const rnorm_r = 1.0 / std::max(eps_psi_residual, sqrt(r2));
+                    // makeOuterProductMatrix(r, r_rt); scaleMatrixIP(rnorm_r, r_rt);
+                    // makeIdentityMatrix(rI); scaleMatrixIP(sqrt(r2), rI);
+                    // outer_deriv = W/2.0*rsqrt_psi * r_rt + sqrt_psi * rcp_r2 * (rI - r_rt);
+
+                    // Matrix<double> J(Jdst.num_rows(), Jdst.num_cols());
+                    // copyMatrix(Jdst, J);
+                    // multiply_A_B(outer_deriv, J, Jdst);
 
 
-                double const r2 = sqr(r);
-                double const W = psi_weight(m_sqrInlierThreshold, r2);
-                double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, r2));
-                double const rsqrt_psi = 1.0 / std::max(eps_psi_residual, sqrt_psi);
+                    double const r2 = sqr(r);
+                    double const W = psi_weight(m_sqrInlierThreshold, r2);
+                    double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, r2));
+                    double const rsqrt_psi = 1.0 / std::max(eps_psi_residual, sqrt_psi);
 
-                // Matrix2x2d outer_deriv, r_rt, rI;
-                double const rcp_r2 = 1.0 / std::max(eps_psi_residual, r2);
-                double const rnorm_r = 1.0 / std::max(eps_psi_residual, double(r));
-                // makeOuterProductMatrix(r, r_rt); scaleMatrixIP(rnorm_r, r_rt);
-                double const r_rt = r2;
-                double const rI = r;
-                // makeIdentityMatrix(rI); scaleMatrixIP(sqrt(r2), rI);
-                double const deriv = W/2.0*rsqrt_psi * r_rt + sqrt_psi * rcp_r2 * (rI - r_rt);
+                    // Matrix2x2d outer_deriv, r_rt, rI;
+                    double const rcp_r2 = 1.0 / std::max(eps_psi_residual, r2);
+                    double const rnorm_r = 1.0 / std::max(eps_psi_residual, double(r));
+                    // makeOuterProductMatrix(r, r_rt); scaleMatrixIP(rnorm_r, r_rt);
+                    double const r_rt = r2;
+                    double const rI = r;
+                    // makeIdentityMatrix(rI); scaleMatrixIP(sqrt(r2), rI);
+                    double const deriv = W/2.0*rsqrt_psi * r_rt + sqrt_psi * rcp_r2 * (rI - r_rt);
 
-                // Matrix<double> J(Jdst.num_rows(), Jdst.num_cols());
-                // copyMatrix(Jdst, J);
-                // multiply_A_B(outer_deriv, J, Jdst);
+                    pds[0] *= deriv;
+                    pds[1] *= deriv;
 
-                pds[0] *= deriv;
-                pds[1] *= deriv;
+                }
+
+
+
+
+
+                if (m_i < 50) {
+
+                    fjac.coeffRef(m_i, 0) = pds[0];
+                    fjac.coeffRef(m_i, 1) = pds[1];
+                                    
+                } else {
+
+                    fjac.coeffRef(m_i, 2) = pds[0];
+                    fjac.coeffRef(m_i, 3) = pds[1];
+                }
+
 
             }
+        } else {
+            // direct evaluation of derivatives   
 
-            if (m_i < 50) {
+                std::cout << "Direct evaluation" << std::endl;
 
-                fjac.coeffRef(m_i, 0) = pds[0];
-                fjac.coeffRef(m_i, 1) = pds[1];
-                                
-            } else {
+                // for each parameter, evaluate fVec with adjusted parameter values
 
-                fjac.coeffRef(m_i, 2) = pds[0];
-                fjac.coeffRef(m_i, 3) = pds[1];
-            }
+                for (int i = 0; i < x.size(); i++) {
 
+                    Eigen::VectorXd xPlus(x);
+                    xPlus(i) += epsilon;
+                    Eigen::VectorXd xMinus(x);
+                    xMinus(i) -= epsilon;
+
+                    Eigen::VectorXd fvecPlus(this->values());
+                    operator()(xPlus, fvecPlus);
+
+                    Eigen::VectorXd fvecMinus(this->values());
+                    operator()(xMinus, fvecMinus);
+
+                    Eigen::VectorXd fvecDiff(this->values());
+                    fvecDiff = (fvecPlus - fvecMinus) / (2.0f * epsilon);
+
+                    // fjac.block(0, i, this->values(), 1) = fvecDiff;
+
+                    for (int row = 0; row < this->values(); ++row)
+                    {
+                        if (fvecDiff(row) != 0.0) {
+                            fjac.coeffRef(row, i) = fvecDiff(row);
+                        }
+                    }
+                }
 
         }
 
