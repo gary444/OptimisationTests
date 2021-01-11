@@ -1,0 +1,34 @@
+
+
+PARAMS:
+double ar = 1.5, br = 2.0, cr = 1.6, dr = 2.1;         // real parameter value
+double ae = 2, be = 2, ce = 2, de = 2;        // Estimated parameter value
+int N = 100;                                 // data point
+double w_sigma = 1.0;                        // Noise Sigma value
+
+huber_delta = 4;
+
+no outlier, no robust
+
+1.5023
+  2.003
+1.49528
+2.20843
+
+
+
+outlier, no robust
+
+1.41808
+ 2.08837
+0.590951
+ 3.19145
+
+
+outlier, robust, numerical evaluation
+
+-0.190066
+  3.81677
+ 0.355358
+  3.38284
+

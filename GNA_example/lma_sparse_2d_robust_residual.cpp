@@ -12,7 +12,7 @@
 using namespace std;
 using namespace Eigen;
 
-#define ADD_OUTLIER 0
+#define ADD_OUTLIERS 0
 #define ROBUSTIFY   0
 
 #define NUMERICAL_GRADIENT_CALCULATION 1
@@ -436,9 +436,20 @@ int main(int argc, char **argv) {
         // }
     }
 
-    // if (ADD_OUTLIER){
-    //     double x = x_data[10];
+    // if (ADD_OUTLIERS){
+    //     double x = x_data[5];
     //     y_data[10] *= 3.0;
+    //     y_data[11] /= 2.0;
+
+
+    //     x = x_data[24];
+    //     y_data[48] *= 1.5;
+    //     y_data[49] *= 2.7;
+
+
+    //     x = x_data[31];
+    //     y_data[62] *= 3.5;
+    //     // y_data[63] *= 2.7;
     // }
     
 
