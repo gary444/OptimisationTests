@@ -43,3 +43,8 @@ target_link_libraries( "lma" ${OpenCV_LIBS} )
 set (TGT_NAME "lma_sparse")
 add_executable( ${TGT_NAME} ${TGT_NAME}.cpp ${HELPER_FILES} )
 target_link_libraries( ${TGT_NAME} ${OpenCV_LIBS} )
+
+set (TGT_NAME "lma_2d_new")
+add_executable( ${TGT_NAME} ${TGT_NAME}.cpp ${HELPER_FILES} )
+target_link_libraries( ${TGT_NAME} ${OpenCV_LIBS} )
+
