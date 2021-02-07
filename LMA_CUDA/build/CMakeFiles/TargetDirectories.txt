@@ -1,0 +1,6 @@
+/home/hoqe4365/Documents/repos/optimisation/LMA_CUDA/build/CMakeFiles/rebuild_cache.dir
+/home/hoqe4365/Documents/repos/optimisation/LMA_CUDA/build/CMakeFiles/lma_with_cuda.dir
+/home/hoqe4365/Documents/repos/optimisation/LMA_CUDA/build/CMakeFiles/edit_cache.dir
+/home/hoqe4365/Documents/repos/optimisation/LMA_CUDA/build/src/CMakeFiles/rebuild_cache.dir
+/home/hoqe4365/Documents/repos/optimisation/LMA_CUDA/build/src/CMakeFiles/cusparse_cholesky_solver.dir
+/home/hoqe4365/Documents/repos/optimisation/LMA_CUDA/build/src/CMakeFiles/edit_cache.dir

@@ -12,10 +12,10 @@
 using namespace std;
 using namespace Eigen;
 
-#define ADD_OUTLIERS 0
+#define ADD_OUTLIER 0
 #define ROBUSTIFY   1
 
-#define NUMERICAL_GRADIENT_CALCULATION 0
+#define NUMERICAL_GRADIENT_CALCULATION 1
 
 #define HUBER_LOSS 1
 
@@ -43,7 +43,7 @@ double psi_weight(double const tau2, double const r2)
 // }
 // =====================================================
     
-double const huber_delta = 5; // residual size threshold by which outliers are classified
+double const huber_delta = 0.1;
 
 double huber_loss(double const c, double const r, bool& outlier){ // robustness constant, residual
     if (abs(r) < c){ //inlier
@@ -62,11 +62,6 @@ double huber_first_derivative(double const c, double const r){ // robustness con
     } else { //outlier
         return r > 0 ? c : (r < 0 ? -c : 0); // c*sgn(r). sgn() is the sign function
     }
-}
-
-
-double function_1(const double x, const double a, const double b){
-    return a*x*x+b*x;
 }
 
 
@@ -113,18 +108,17 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
 
         uint32_t outliers = 0;
 
-        // for (Index i = 0; i < 100; ++i)
-        // {
-        //     fvec[i] = i;
-        // }
+        for (Index i = 0; i < 100; ++i)
+        {
+            fvec[i] = i;
+        }
 
 
-	    for (Index m_i = 0; m_i < Index(this->values()/2); ++m_i) {
+	    for (Index m_i = 0; m_i < Index(this->values()); ++m_i) {
 
-            // std::cout << m_i << std::endl;
 
 	        double x_val = x_data[m_i];
-	        Vector2d y_val ( y_data[m_i*2+0], y_data[m_i*2+1] );
+	        double y_val = y_data[m_i];
 	        
 	        if (m_i < Index(50)){
 
@@ -133,28 +127,21 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
                 // std::cout << "x_val" << x_val << std::endl;
                 // std::cout << "y_val" << y_val << std::endl;
 
-                fvec[m_i*2+0] = y_val[0] - exp(a*x_val*x_val+b*x_val);
-	        	fvec[m_i*2+1] = y_val[1] - exp(b*x_val*x_val+a*x_val);
-
-                // fvec[m_i] = y_val - function_1(x_val, a, b);
+	        	fvec[m_i] = y_val - exp(a*x_val*x_val+b*x_val);
 
                 // std::cout << "result" << fvec[m_i] << std::endl;
 
 
 	        } else {
 
-         //        // std::cout << "c" << c << std::endl;
-         //        // std::cout << "d" << d << std::endl;
-         //        // std::cout << "x_val" << x_val << std::endl;
-         //        // std::cout << "y_val" << y_val << std::endl;
+                // std::cout << "c" << c << std::endl;
+                // std::cout << "d" << d << std::endl;
+                // std::cout << "x_val" << x_val << std::endl;
+                // std::cout << "y_val" << y_val << std::endl;
 
+	        	fvec[m_i] = y_val - exp(c*x_val*x_val+d*x_val);
 
-                // fvec[m_i] = y_val - function_1(x_val, c, d);
-
-                fvec[m_i*2+0] = y_val[0] - exp(c*x_val*x_val+d*x_val);
-	        	fvec[m_i*2+1] = y_val[1] - exp(d*x_val*x_val+c*x_val);
-
-         //        // std::cout << "result" << fvec[m_i] << std::endl;
+                // std::cout << "result" << fvec[m_i] << std::endl;
 
 	        }
 
@@ -166,16 +153,15 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
                 // e[1] *= sqrt_psi * rnorm_r;
 
                 // residuals are 1 dimensional in this case
-                Vector2d res ( fvec[m_i*2+0], fvec[m_i*2+1] );
-                double const r_norm = res.norm();
+                double res = fvec[m_i];
 #if HUBER_LOSS
                 bool is_outlier;
-                double const sqrt_psi = sqrt(huber_loss(huber_delta, r_norm, is_outlier ));
+                double const sqrt_psi = sqrt(huber_loss(huber_delta, res, is_outlier ));
                 if (is_outlier) ++outliers;
-// #else
-//                 double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, res*res ));
+#else
+                double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, res*res ));
 #endif           
-                double const rnorm_r  = 1.0 / std::max(eps_psi_residual, r_norm ) ;
+                double const rnorm_r  = 1.0 / std::max(eps_psi_residual, abs(res) ) ;
 
 
                 // std::cout << "--- " << std::endl;
@@ -184,8 +170,7 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
                 // std::cout << "rnorm_r: " << rnorm_r << std::endl;
 
 
-                fvec[m_i*2+0] = double(res[0] * sqrt_psi * rnorm_r);
-                fvec[m_i*2+0] = double(res[1] * sqrt_psi * rnorm_r);
+                fvec[m_i] = double(res * sqrt_psi * rnorm_r);
 
                 // std::cout << "out: " << fvec[m_i] << std::endl;
                 // std::cout << "--- " << std::endl;
@@ -211,9 +196,6 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
     // int df(const Eigen::VectorXd &x, Eigen::MatrixXf &fjac) const
 	int df(const InputType &x, JacobianType& fjac)
     {
-
-
-
         // find partial derivatives of each term / data point WRT each parameter in x
         double a = x[0];
         double b = x[1];
@@ -228,59 +210,26 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
 
 
 
-            for (Index m_i = 0; m_i < Index(this->values()/2); ++m_i)
+            for (Index m_i = 0; m_i < Index(this->values()); ++m_i)
             {
+                double x_val = x_data[m_i];
+    	        double y_val = y_data[m_i];
 
-            // std::cout << m_i << std::endl;
-
-
-                const double x_val = x_data[m_i];
-                const Vector2d y_val ( y_data[m_i*2+0], y_data[m_i*2+1] );
-
-                // double pds[2];
-                Vector2d r;
-
-                Matrix2d pds;
+                double pds[2];
+                double r;
     	       
                 if (m_i < 50) {
-    	            // pds[0] = -x_val*x_val*exp(a*x_val*x_val+b*x_val);
-    	            // pds[1] = -x_val*exp(a*x_val*x_val+b*x_val);
+    	            pds[0] = -x_val*x_val*exp(a*x_val*x_val+b*x_val);
+    	            pds[1] = -x_val*exp(a*x_val*x_val+b*x_val);
 
-                    // pd of r0 WRT a
-                    pds(0,0) = -x_val*x_val*exp(a*x_val*x_val+b*x_val);
-                    // pd of r1 WRT a
-                    pds(1,0) = -x_val*exp(b*x_val*x_val+a*x_val);
-                    // pd of r0 WRT b
-                    pds(0,1) = -x_val*exp(a*x_val*x_val+b*x_val);
-                    // pf of r1 WRT b
-                    pds(1,1) = -x_val*x_val*exp(b*x_val*x_val+a*x_val);
-
-
-                    r[0] = y_val[0] - exp(a*x_val*x_val+b*x_val);
-                    r[1] = y_val[1] - exp(b*x_val*x_val+a*x_val);
-
-                    // pds[0] = x_val*x_val;
-                    // pds[1] = x_val;
-
-
-                    // r = y_val - exp(a*x_val*x_val+b*x_val);
+                    r = y_val - exp(a*x_val*x_val+b*x_val);
 
                 } else {
 
+    	            pds[0] = -x_val*x_val*exp(c*x_val*x_val+d*x_val);
+    	            pds[1] = -x_val*exp(c*x_val*x_val+d*x_val);
 
-    	            pds(0,0) = -x_val*x_val*exp(c*x_val*x_val+d*x_val);
-    	            pds(1,0) = -x_val*exp(d*x_val*x_val+c*x_val);
-
-                    pds(0,1) = -x_val*exp(c*x_val*x_val+d*x_val);
-                    pds(1,1) = -x_val*x_val*exp(d*x_val*x_val+c*x_val);
-
-                    r[0] = y_val[0] - exp(c*x_val*x_val+d*x_val);
-                    r[1] = y_val[1] - exp(d*x_val*x_val+c*x_val);
-
-                    // pds[0] = x_val*x_val;
-                    // pds[1] = x_val;
-
-             //        r = y_val - exp(c*x_val*x_val+d*x_val);
+                    r = y_val - exp(c*x_val*x_val+d*x_val);
     	        }
 
                 if (ROBUSTIFY){
@@ -288,28 +237,17 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
                     // Vector2d const q = this->projectPoint(_Xs[point], view);
                     // Vector2d const r = q - _measurements[k];
 
-                    double const r_norm = r.norm();
-                    double const r2 = r_norm*r_norm;
-                    bool is_outlier_dummy;
-                    double const sqrt_psi = sqrt(huber_loss(huber_delta, r_norm, is_outlier_dummy));
-                    double const W = huber_first_derivative(huber_delta, r_norm);
-                    double const rsqrt_psi = 1.0 / std::max(eps_psi_residual, sqrt_psi);
+                    // double const r2 = sqrNorm_L2(r);
+                    // double const W = psi_weight(m_sqrInlierThreshold, r2);
+                    // double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, r2));
+                    // double const rsqrt_psi = 1.0 / std::max(eps_psi_residual, sqrt_psi);
 
-                    double const rcp_r2 = 1.0 / std::max(eps_psi_residual, r2);
-                    double const rnorm_r = 1.0 / std::max(eps_psi_residual, r_norm);
-
-                    Matrix2d r_rt = r*r.transpose();
-                    r_rt *= rnorm_r;
-
-                    Matrix2d rI = Matrix2d::Identity();
-                    rI *= r_norm;
-
-                    Matrix2d outer_deriv = W/2.0*rsqrt_psi * r_rt + sqrt_psi * rcp_r2 * (rI - r_rt);
-
-                    Matrix2d temp_pds = pds;
-                    pds = outer_deriv * temp_pds;
-
-                    // std::cout << outer_deriv << std::endl;
+                    // Matrix2x2d outer_deriv, r_rt, rI;
+                    // double const rcp_r2 = 1.0 / std::max(eps_psi_residual, r2);
+                    // double const rnorm_r = 1.0 / std::max(eps_psi_residual, sqrt(r2));
+                    // makeOuterProductMatrix(r, r_rt); scaleMatrixIP(rnorm_r, r_rt);
+                    // makeIdentityMatrix(rI); scaleMatrixIP(sqrt(r2), rI);
+                    // outer_deriv = W/2.0*rsqrt_psi * r_rt + sqrt_psi * rcp_r2 * (rI - r_rt);
 
                     // Matrix<double> J(Jdst.num_rows(), Jdst.num_cols());
                     // copyMatrix(Jdst, J);
@@ -326,41 +264,31 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
                     // double const rI = r;
                     // double const deriv = W/2.0*rsqrt_psi * r_rt + sqrt_psi * rcp_r2 * (rI - r_rt);
 
-//                     double const r_norm = r.norm();
-//                     double const r_sqd_norm = r_norm*r_norm;
-//                     // double const r_abs = abs(r);
-//                     double const rcp_r_abs = 1.0 / std::max(eps_psi_residual, r_norm);
-//                     // double const r2 = sqr(r);
-//                     double const r3 = r_norm*r_norm*r_norm;
-//                     double const rcp_r3 = 1.0 / std::max(eps_psi_residual, r3);
-// #if HUBER_LOSS
-//                     bool is_outlier_dummy;
-//                     double const sqrt_psi = sqrt(huber_loss(huber_delta, r_norm, is_outlier_dummy));
-//                     double const W = huber_first_derivative(huber_delta, r_norm);
-// // #else
-// //                     double const W = psi_weight(m_sqrInlierThreshold, r);
-// //                     double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, r));
-// #endif            
-//                     double const rsqrt_psi = 1.0 / std::max(eps_psi_residual, sqrt_psi);
-//                     // double const rcp_r2 = 1.0 / std::max(eps_psi_residual, r2);
-//                     // double const rnorm_r = 1.0 / std::max(eps_psi_residual, double(r));
-//                     // double const r_rt = r2;
-//                     // double const rI = r;
+                    double const r_abs = abs(r);
+                    double const rcp_r_abs = 1.0 / std::max(eps_psi_residual, r_abs);
+                    double const r2 = sqr(r);
+                    double const r3 = r_abs*r_abs*r_abs;
+                    double const rcp_r3 = 1.0 / std::max(eps_psi_residual, r3);
+#if HUBER_LOSS
+                    double const W = huber_first_derivative(huber_delta, r);
+                    bool is_outlier_dummy;
+                    double const sqrt_psi = sqrt(huber_loss(huber_delta, r, is_outlier_dummy));
+#else
+                    double const W = psi_weight(m_sqrInlierThreshold, r);
+                    double const sqrt_psi = sqrt(psi(m_sqrInlierThreshold, r));
+#endif            
+                    double const rsqrt_psi = 1.0 / std::max(eps_psi_residual, sqrt_psi);
+                    double const rcp_r2 = 1.0 / std::max(eps_psi_residual, r2);
+                    double const rnorm_r = 1.0 / std::max(eps_psi_residual, double(r));
+                    double const r_rt = r2;
+                    double const rI = r;
 
-//                     double const rrt = r[0]*r[0] + r[1]*r[1];
+                    // 2nd term seems to cancel out if there is only one component of the residual
+                    // double const deriv = 0.5*rcp_r_abs*rsqrt_psi * r * W + sqrt_psi * rcp_r3 * (r2 - r_rt);
+                    double const deriv = 0.5 * rcp_r_abs * rsqrt_psi * r * W;
 
-//                     Vector2d deriv = (0.5 * rcp_r_abs * rsqrt_psi * r * W);
-//                     double const term_2 = sqrt_psi * rcp_r3 * (r_sqd_norm - rrt) ; // this still seems to cancel out??
-//                     deriv += Vector2d(term_2, term_2);
-
-//                     // pds[0] *= deriv;
-//                     // pds[1] *= deriv;
-
-//                     pds(0,0) *= deriv[0];
-//                     pds(0,1) *= deriv[0];
-                    
-//                     pds(1,0) *= deriv[1];
-//                     pds(1,1) *= deriv[1];
+                    pds[0] *= deriv;
+                    pds[1] *= deriv;
 
                 }
 
@@ -370,24 +298,13 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
 
                 if (m_i < 50) {
 
-                    // fjac.coeffRef(m_i, 0) = pds[0];
-                    // fjac.coeffRef(m_i, 1) = pds[1];
-
-                    fjac.coeffRef(m_i*2+0,0) = pds(0,0);
-                    fjac.coeffRef(m_i*2+0,1) = pds(0,1);
-                    fjac.coeffRef(m_i*2+1,0) = pds(1,0);
-                    fjac.coeffRef(m_i*2+1,1) = pds(1,1);
+                    fjac.coeffRef(m_i, 0) = pds[0];
+                    fjac.coeffRef(m_i, 1) = pds[1];
                                     
                 } else {
 
-                    // fjac.coeffRef(m_i, 2) = pds[0];
-                    // fjac.coeffRef(m_i, 3) = pds[1];
-                
-                    fjac.coeffRef(m_i*2+0,2) = pds(0,0);
-                    fjac.coeffRef(m_i*2+0,3) = pds(0,1);
-                    fjac.coeffRef(m_i*2+1,2) = pds(1,0);
-                    fjac.coeffRef(m_i*2+1,3) = pds(1,1);
-                                    
+                    fjac.coeffRef(m_i, 2) = pds[0];
+                    fjac.coeffRef(m_i, 3) = pds[1];
                 }
 
 
@@ -427,13 +344,7 @@ struct CustomSparseFunctor : public SparseFunctor<_Scalar, _Index>
 
         }
 
-        // auto A = fjac * fjac.transpose();
-
-        // std::ofstream of("mat.txt");
-        // of << A << std::endl;
-        // of.close();
-
-        // std::cout << "A\n" << A << std::endl;
+        // std::cout << "fjac\n" << fjac << std::endl;
         fjac.makeCompressed();
         return 0;
 
@@ -454,9 +365,9 @@ int main(int argc, char **argv) {
 
 
     double ar = 1.5, br = 2.0, cr = 1.6, dr = 2.1;         // real parameter value
-    double ae = 1, be = 1, ce = 1, de = 1;        // Estimated parameter value
+    double ae = 1.5, be = 2.0, ce = 1.5, de = 2.0;        // Estimated parameter value
     int N = 100;                                 // data point
-    double w_sigma = 1.0;                        // Noise Sigma value
+    double w_sigma = 0.2;                        // Noise Sigma value
     cv::RNG rng;                                 // OpenCV random number generator
 
 
@@ -468,7 +379,7 @@ int main(int argc, char **argv) {
 
     // for LMA
     int n = 4;//num parameters
-    int m = N*2;//num constraints (terms)
+    int m = N;//num constraints (terms)
     Eigen::VectorXd x_vec (4); // parameter values (initial)    
 
     x_vec(0) = ae;
@@ -480,42 +391,21 @@ int main(int argc, char **argv) {
     for (int i = 0; i < N; i++) {
         // double x = i / double(N) * 0.5;
 
-        double x = rng.uniform((double)0, (double)1.0);
+        double x = rng.uniform((double)0, (double)0.5);
 
         // double x = i / double(N);
         x_data.push_back(x);
 
         if (i < 50){
-
-            // y_data.push_back(function_1(x, ar, br) + rng.gaussian(w_sigma));
-            y_data.push_back(exp(ar * x * x + br * x) + rng.gaussian(w_sigma));
-            y_data.push_back(exp(br * x * x + ar * x) + rng.gaussian(w_sigma));
+        	y_data.push_back(exp(ar * x * x + br * x) + rng.gaussian(w_sigma));
         } else {
-            // y_data.push_back(function_1(x, cr, dr) + rng.gaussian(w_sigma));
-            y_data.push_back(exp(cr * x * x + dr * x) + rng.gaussian(w_sigma));
-        	y_data.push_back(exp(dr * x * x + cr * x) + rng.gaussian(w_sigma));
+        	y_data.push_back(exp(cr * x * x + dr * x) + rng.gaussian(w_sigma));
         }
 
     }
-    if (ADD_OUTLIERS){
-        double x = x_data[5];
+    if (ADD_OUTLIER){
+        double x = x_data[10];
         y_data[10] *= 3.0;
-        y_data[11] /= 2.0;
-
-
-        x = x_data[24];
-        y_data[48] *= 1.5;
-        y_data[49] *= 2.7;
-
-
-        x = x_data[54];
-        y_data[108] *= 3.5;
-        // y_data[63] *= 2.7;
-
-        x = x_data[72];
-        y_data[144] *= 0.3;
-        y_data[145] *= 0.4;
-
     }
     
 
@@ -532,9 +422,9 @@ int main(int argc, char **argv) {
 
 
     Eigen::LevenbergMarquardt<CustomSparseFunctor<double, int>> lm (lmfunctor);
-    auto status = lm.minimize(x_vec);
+    lm.minimize(x_vec);
 
-    std::cout << "Status: " << status << std::endl;
+
 
 
     cout << "estimated abcd = " << x_vec << endl;

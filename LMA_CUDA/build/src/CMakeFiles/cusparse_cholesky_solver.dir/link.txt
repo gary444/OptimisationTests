@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcusparse_cholesky_solver.a  CMakeFiles/cusparse_cholesky_solver.dir/cusparse_cholesky_solver.cpp.o CMakeFiles/cusparse_cholesky_solver.dir/cusparse_wrapper.cpp.o
+/usr/bin/ranlib libcusparse_cholesky_solver.a
