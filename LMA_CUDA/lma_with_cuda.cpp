@@ -15,7 +15,6 @@
 #define USE_CUDA_SOLVER 1
 
 
-
 using Scalar = double;
 // using SparseMatrixCSC = Eigen::SparseMatrix<Scalar, Eigen::StorageOptions::ColMajor>;
 using SparseMatrixCSR = Eigen::SparseMatrix<Scalar, Eigen::StorageOptions::RowMajor>;
